@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 
 import json
 import unittest
@@ -9,7 +10,7 @@ import requests
 from services.protocol import openai_v1_models
 
 
-AUTH_KEY = "chatgpt2api"
+AUTH_KEY = os.environ.get("CHATGPT2API_AUTH_KEY", "test-auth")
 BASE_URL = "http://localhost:8000"
 
 

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 
 import json
 import time
@@ -8,7 +9,7 @@ import requests
 
 from test.utils import save_image
 
-AUTH_KEY = "chatgpt2api"
+AUTH_KEY = os.environ.get("CHATGPT2API_AUTH_KEY", "test-auth")
 BASE_URL = "http://localhost:8000"
 
 
