@@ -7,7 +7,7 @@ import unittest
 
 import requests
 
-from test.utils import save_image
+from test.utils import requires_integration, save_image
 
 AUTH_KEY = os.environ.get("CHATGPT2API_AUTH_KEY", "test-auth")
 BASE_URL = "http://localhost:8000"
@@ -25,6 +25,7 @@ class ResponsesTests(unittest.TestCase):
             text = line.decode("utf-8", errors="replace")
             yield text
 
+    @requires_integration
     def test_text_response_http(self):
         """测试 Responses 文本的非流式 HTTP 调用。"""
         response = requests.post(
@@ -57,6 +58,7 @@ class ResponsesTests(unittest.TestCase):
             print(response.text)
             raise
 
+    @requires_integration
     def test_text_response_stream_http(self):
         """测试 Responses 文本的流式 HTTP 调用。"""
         response = requests.post(
@@ -104,6 +106,7 @@ class ResponsesTests(unittest.TestCase):
         self.assertIn("response.created", event_types)
         self.assertIn("response.completed", event_types)
 
+    @requires_integration
     def test_image_response_http(self):
         """测试 Responses 画图的非流式 HTTP 调用。"""
         response = requests.post(
@@ -143,6 +146,7 @@ class ResponsesTests(unittest.TestCase):
         for path in saved_paths:
             print(path)
 
+    @requires_integration
     def test_image_response_stream_http(self):
         """测试 Responses 画图的流式 HTTP 调用。"""
         response = requests.post(
@@ -197,6 +201,7 @@ class ResponsesTests(unittest.TestCase):
         for path in saved_paths:
             print(path)
 
+    @requires_integration
     def test_codex_image_response_http(self):
         """测试 Responses 的 codex 画图非流式 HTTP 调用。"""
         response = requests.post(
@@ -236,6 +241,7 @@ class ResponsesTests(unittest.TestCase):
         for path in saved_paths:
             print(path)
 
+    @requires_integration
     def test_codex_image_response_stream_http(self):
         """测试 Responses 的 codex 画图流式 HTTP 调用。"""
         response = requests.post(

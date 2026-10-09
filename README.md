@@ -160,6 +160,24 @@ environment:
 
 ## 效果展示
 
+## 测试
+
+默认测试集合不访问本地服务或上游网络：
+
+```bash
+python3 -m unittest discover -s test -v
+```
+
+需要启动本地 API 并执行 HTTP / 上游调用测试时，显式开启：
+
+```bash
+CHATGPT2API_RUN_INTEGRATION=1 python3 -m unittest discover -s test -v
+```
+
+集成测试会产生真实请求和图片输出，请只在隔离账号、隔离环境中运行。
+
+## Screenshots
+
 <table width="100%">
   <tr>
     <td width="50%"><img src="https://i.ibb.co/Jj8nfwwP/image.png" alt="image" border="0"></td>
