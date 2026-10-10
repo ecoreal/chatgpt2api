@@ -50,12 +50,16 @@ class AuthService:
         name = self._clean(raw.get("name")) or self._default_name(role)
         created_at = self._clean(raw.get("created_at")) or _now_iso()
         last_used_at = self._clean(raw.get("last_used_at")) or None
+        raw_enabled = raw.get("enabled", True)
+        # Stored values are untrusted input.  A string such as ``"false"``
+        # must not become truthy and silently re-enable a disabled key.
+        enabled = raw_enabled if isinstance(raw_enabled, bool) else False
         return {
             "id": item_id,
             "name": name,
             "role": role,
             "key_hash": key_hash,
-            "enabled": bool(raw.get("enabled", True)),
+            "enabled": enabled,
             "created_at": created_at,
             "last_used_at": last_used_at,
         }
@@ -197,7 +201,10 @@ class AuthService:
                         exclude_id=normalized_id,
                     )
                 if "enabled" in updates and updates.get("enabled") is not None:
-                    next_item["enabled"] = bool(updates.get("enabled"))
+                    value = updates.get("enabled")
+                    # Keep programmatic callers fail-closed just like persisted
+                    # data; API models normally provide a real JSON boolean.
+                    next_item["enabled"] = value if isinstance(value, bool) else False
                 if "key" in updates and updates.get("key") is not None:
                     next_item["key_hash"] = self._build_key_hash_locked(str(updates.get("key") or ""), exclude_id=normalized_id)
                 self._items[index] = next_item

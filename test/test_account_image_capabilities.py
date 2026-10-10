@@ -248,6 +248,20 @@ class AuthServiceTests(unittest.TestCase):
             self.assertFalse(service.delete_key(item["id"], role="user"))
             self.assertEqual(service.list_keys(role="user"), [])
 
+    def test_string_false_in_storage_cannot_reenable_key(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            storage = JSONStorageBackend(Path(tmp_dir) / "accounts.json", Path(tmp_dir) / "auth_keys.json")
+            service = AuthService(storage)
+            item, raw_key = service.create_key(role="user", name="Alice")
+
+            stored = storage.load_auth_keys()
+            stored[0]["enabled"] = "false"
+            storage.save_auth_keys(stored)
+
+            reloaded = AuthService(storage)
+            self.assertFalse(reloaded.list_keys(role="user")[0]["enabled"])
+            self.assertIsNone(reloaded.authenticate(raw_key))
+
     def test_authenticate_ignores_last_used_save_failure(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = AuthService(JSONStorageBackend(Path(tmp_dir) / "accounts.json", Path(tmp_dir) / "auth_keys.json"))
