@@ -14,7 +14,7 @@ from services.auth_service import AuthService
 from services.config import config
 from services.openai_backend_api import InvalidAccessTokenError
 from services.storage.json_storage import JSONStorageBackend
-from services.log_service import LogService
+from services.log_service import LogService, _sanitize_log_url
 from utils.helper import anonymize_token, split_image_model
 
 
@@ -155,6 +155,13 @@ class TokenLogTests(unittest.TestCase):
 
         self.assertTrue(token_ref.startswith("token:"))
         self.assertNotIn(token, token_ref)
+
+    def test_log_urls_drop_query_credentials(self) -> None:
+        self.assertEqual(
+            _sanitize_log_url("https://cdn.example/image.png?token=secret&expires=1"),
+            "https://cdn.example/image.png",
+        )
+        self.assertEqual(_sanitize_log_url("not-a-url"), "[redacted-url]")
 
     def test_log_list_keeps_newest_matching_records_with_limit(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
 
 from fastapi import HTTPException
@@ -123,6 +124,23 @@ class LogService:
 
 
 log_service = LogService(DATA_DIR / "logs.jsonl")
+
+
+def _sanitize_log_url(value: str) -> str:
+    """Keep URL paths useful in history without persisting query credentials."""
+    try:
+        parsed = urlsplit(value)
+        if not parsed.scheme or not parsed.netloc:
+            return "[redacted-url]"
+        hostname = parsed.hostname or ""
+        if not hostname:
+            return "[redacted-url]"
+        netloc = f"[{hostname}]" if ":" in hostname else hostname
+        if parsed.port is not None:
+            netloc = f"{netloc}:{parsed.port}"
+        return urlunsplit((parsed.scheme, netloc, parsed.path, "", ""))
+    except ValueError:
+        return "[redacted-url]"
 
 
 def _collect_urls(value: object) -> list[str]:
@@ -345,5 +363,5 @@ class LoggedCall:
             detail["conversation_id"] = conv_id
         collected_urls = [*(urls or []), *_collect_urls(result)]
         if collected_urls and not self.endpoint.startswith("/v1/search"):
-            detail["urls"] = list(dict.fromkeys(collected_urls))
+            detail["urls"] = list(dict.fromkeys(_sanitize_log_url(url) for url in collected_urls))
         log_service.add(LOG_TYPE_CALL, f"{self.summary}{suffix}", detail)
