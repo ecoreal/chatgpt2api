@@ -154,6 +154,21 @@ class TokenLogTests(unittest.TestCase):
         self.assertTrue(token_ref.startswith("token:"))
         self.assertNotIn(token, token_ref)
 
+    def test_refresh_errors_anonymize_tokens(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = AccountService(JSONStorageBackend(Path(tmp_dir) / "accounts.json"))
+            token = "super-secret-token"
+            service.add_accounts([token])
+
+            def fail_refresh(_access_token: str):
+                raise RuntimeError("synthetic refresh failure")
+
+            service.fetch_remote_info = fail_refresh
+            result = service.refresh_accounts([token])
+
+            self.assertEqual(result["errors"][0]["token"], anonymize_token(token))
+            self.assertNotIn(token, str(result["errors"]))
+
 
 class AuthServiceTests(unittest.TestCase):
     def test_create_authenticate_disable_and_delete_user_key(self) -> None:
