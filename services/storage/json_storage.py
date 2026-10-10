@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,17 @@ class JSONStorageBackend(StorageBackend):
         self.auth_keys_path = auth_keys_path or file_path.with_name("auth_keys.json")
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
         self.auth_keys_path.parent.mkdir(parents=True, exist_ok=True)
+        self._restrict_permissions(self.file_path)
+        self._restrict_permissions(self.auth_keys_path)
+
+    @staticmethod
+    def _restrict_permissions(file_path: Path) -> None:
+        try:
+            if file_path.exists():
+                os.chmod(file_path, 0o600)
+        except OSError:
+            # Some platforms/filesystems do not expose POSIX permissions.
+            pass
 
     @staticmethod
     def _load_json_list(file_path: Path) -> list[dict[str, Any]]:
@@ -33,6 +45,7 @@ class JSONStorageBackend(StorageBackend):
             json.dumps(items, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
+        JSONStorageBackend._restrict_permissions(file_path)
 
     def load_accounts(self) -> list[dict[str, Any]]:
         """从 JSON 文件加载账号数据"""
@@ -61,6 +74,7 @@ class JSONStorageBackend(StorageBackend):
             json.dumps({"items": auth_keys}, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
+        self._restrict_permissions(self.auth_keys_path)
 
     def health_check(self) -> dict[str, Any]:
         """健康检查"""
