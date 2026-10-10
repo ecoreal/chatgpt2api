@@ -7,7 +7,7 @@ import unittest
 
 import requests
 
-from test.utils import requires_integration
+from test.helpers import requires_integration
 
 from utils.helper import save_images_from_text
 

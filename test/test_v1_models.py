@@ -8,7 +8,7 @@ from unittest import mock
 import requests
 
 from services.protocol import openai_v1_models
-from test.utils import requires_integration
+from test.helpers import requires_integration
 
 
 AUTH_KEY = os.environ.get("CHATGPT2API_AUTH_KEY", "test-auth")

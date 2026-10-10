@@ -7,7 +7,7 @@ import unittest
 
 import requests
 
-from test.utils import requires_integration, save_image
+from test.helpers import requires_integration, save_image
 
 AUTH_KEY = os.environ.get("CHATGPT2API_AUTH_KEY", "test-auth")
 BASE_URL = "http://localhost:8000"

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import requests
 
-from test.utils import requires_integration, save_image
+from test.helpers import requires_integration, save_image
 from utils.log import logger
 
 AUTH_KEY = os.environ.get("CHATGPT2API_AUTH_KEY", "test-auth")
