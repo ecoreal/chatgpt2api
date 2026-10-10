@@ -32,9 +32,8 @@ class LogService:
 
     def _restrict_permissions(self) -> None:
         try:
+            self.path.touch(mode=0o600, exist_ok=True)
             os.chmod(self.path, 0o600)
-        except FileNotFoundError:
-            pass
         except OSError:
             # Some platforms/filesystems do not expose POSIX permissions.
             pass
