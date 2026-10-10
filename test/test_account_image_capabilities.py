@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import stat
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,6 +14,7 @@ from services.auth_service import AuthService
 from services.config import config
 from services.openai_backend_api import InvalidAccessTokenError
 from services.storage.json_storage import JSONStorageBackend
+from services.log_service import LogService
 from utils.helper import anonymize_token, split_image_model
 
 
@@ -153,6 +155,14 @@ class TokenLogTests(unittest.TestCase):
 
         self.assertTrue(token_ref.startswith("token:"))
         self.assertNotIn(token, token_ref)
+
+    @unittest.skipUnless(os.name == "posix", "文件权限断言仅适用于 POSIX")
+    def test_log_file_is_owner_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "logs.jsonl"
+            service = LogService(path)
+            service.add("account", "synthetic")
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
 
     def test_refresh_errors_anonymize_tokens(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

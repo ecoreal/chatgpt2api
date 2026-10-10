@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import itertools
+import os
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -27,6 +28,16 @@ class LogService:
     def __init__(self, path: Path):
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._restrict_permissions()
+
+    def _restrict_permissions(self) -> None:
+        try:
+            os.chmod(self.path, 0o600)
+        except FileNotFoundError:
+            pass
+        except OSError:
+            # Some platforms/filesystems do not expose POSIX permissions.
+            pass
 
     @staticmethod
     def _legacy_id(raw_line: str, line_number: int) -> str:
@@ -70,6 +81,7 @@ class LogService:
         }
         with self.path.open("a", encoding="utf-8") as file:
             file.write(self._serialize_item(item) + "\n")
+        self._restrict_permissions()
 
     def list(self, type: str = "", start_date: str = "", end_date: str = "", limit: int = 200) -> list[dict[str, Any]]:
         if not self.path.exists():
