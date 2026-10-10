@@ -4,6 +4,7 @@ import hashlib
 import json
 import itertools
 import os
+from collections import deque
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -83,20 +84,20 @@ class LogService:
         self._restrict_permissions()
 
     def list(self, type: str = "", start_date: str = "", end_date: str = "", limit: int = 200) -> list[dict[str, Any]]:
-        if not self.path.exists():
+        if not self.path.exists() or limit <= 0:
             return []
-        items: list[dict[str, Any]] = []
-        lines = self.path.read_text(encoding="utf-8").splitlines()
-        for line_number in range(len(lines) - 1, -1, -1):
-            item = self._parse_line(lines[line_number], line_number)
-            if item is None:
-                continue
-            if not self._matches_filters(item, type=type, start_date=start_date, end_date=end_date):
-                continue
-            items.append(item)
-            if len(items) >= limit:
-                break
-        return items
+        # Stream the file and retain only the newest matching records. This
+        # keeps a large historical log from being loaded into memory at once.
+        matches: deque[dict[str, Any]] = deque(maxlen=limit)
+        with self.path.open(encoding="utf-8") as file:
+            for line_number, line in enumerate(file):
+                item = self._parse_line(line, line_number)
+                if item is None:
+                    continue
+                if not self._matches_filters(item, type=type, start_date=start_date, end_date=end_date):
+                    continue
+                matches.append(item)
+        return list(reversed(matches))
 
     def delete(self, ids: list[str]) -> dict[str, int]:
         target_ids = {str(item or "").strip() for item in ids if str(item or "").strip()}

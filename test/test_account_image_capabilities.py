@@ -156,6 +156,17 @@ class TokenLogTests(unittest.TestCase):
         self.assertTrue(token_ref.startswith("token:"))
         self.assertNotIn(token, token_ref)
 
+    def test_log_list_keeps_newest_matching_records_with_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = LogService(Path(tmp_dir) / "logs.jsonl")
+            for index in range(3):
+                service.add("account", f"event-{index}")
+            service.add("call", "other")
+
+            items = service.list(type="account", limit=2)
+
+            self.assertEqual([item["summary"] for item in items], ["event-2", "event-1"])
+
     @unittest.skipUnless(os.name == "posix", "文件权限断言仅适用于 POSIX")
     def test_log_file_is_owner_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
