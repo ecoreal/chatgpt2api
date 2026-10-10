@@ -16,11 +16,13 @@ class RequestBodyTooLarge(Exception):
     """Raised while an application is reading a request over its limit."""
 
 
+def _headers(scope: dict[str, Any], name: bytes) -> list[bytes]:
+    return [value for key, value in scope.get("headers", []) if key.lower() == name]
+
+
 def _header(scope: dict[str, Any], name: bytes) -> bytes:
-    for key, value in scope.get("headers", []):
-        if key.lower() == name:
-            return value
-    return b""
+    values = _headers(scope, name)
+    return values[0] if values else b""
 
 
 def request_body_limit(scope: dict[str, Any]) -> int | None:
@@ -52,13 +54,21 @@ class RequestBodyLimitMiddleware:
             await self.app(scope, receive, send)
             return
 
-        content_length = _header(scope, b"content-length")
+        content_lengths = _headers(scope, b"content-length")
+        if len(content_lengths) > 1:
+            await self._send_error(send, 400, "duplicate content-length")
+            return
+        content_length = content_lengths[0] if content_lengths else b""
         try:
             declared_length = int(content_length) if content_length else None
         except ValueError:
-            declared_length = None
+            await self._send_error(send, 400, "invalid content-length")
+            return
+        if declared_length is not None and declared_length < 0:
+            await self._send_error(send, 400, "invalid content-length")
+            return
         if declared_length is not None and declared_length > limit:
-            await self._send_rejection(send)
+            await self._send_error(send, 413, "request body too large")
             return
 
         received = 0
@@ -83,16 +93,16 @@ class RequestBodyLimitMiddleware:
             await self.app(scope, limited_receive, tracked_send)
         except RequestBodyTooLarge:
             if not response_started:
-                await self._send_rejection(send)
+                await self._send_error(send, 413, "request body too large")
             else:
                 raise
 
     @staticmethod
-    async def _send_rejection(send) -> None:
-        body = b'{"detail":"request body too large"}'
+    async def _send_error(send, status: int, detail: str) -> None:
+        body = ("{\"detail\":\"" + detail + "\"}").encode("ascii")
         await send({
             "type": "http.response.start",
-            "status": 413,
+            "status": status,
             "headers": [
                 (b"content-type", b"application/json"),
                 (b"content-length", str(len(body)).encode("ascii")),

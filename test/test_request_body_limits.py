@@ -51,6 +51,45 @@ class RequestBodyLimitTests(unittest.TestCase):
         self.assertFalse(called)
         self.assertEqual(sent[0]["status"], 413)
 
+    def test_duplicate_content_length_is_rejected(self):
+        called = False
+
+        async def app(scope, receive, send):
+            nonlocal called
+            called = True
+
+        sent = self._run(
+            {
+                "type": "http",
+                "method": "POST",
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", b"1"),
+                    (b"content-length", b"1"),
+                ],
+            },
+            [],
+            app,
+        )
+
+        self.assertFalse(called)
+        self.assertEqual(sent[0]["status"], 400)
+
+    def test_negative_content_length_is_rejected(self):
+        sent = self._run(
+            {
+                "type": "http",
+                "method": "POST",
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", b"-1"),
+                ],
+            },
+            [],
+            lambda scope, receive, send: None,
+        )
+        self.assertEqual(sent[0]["status"], 400)
+
     def test_chunked_json_body_is_rejected_while_reading(self):
         async def app(scope, receive, send):
             while True:
