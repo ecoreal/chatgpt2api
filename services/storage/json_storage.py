@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -40,12 +41,27 @@ class JSONStorageBackend(StorageBackend):
 
     @staticmethod
     def _save_json_list(file_path: Path, items: list[dict[str, Any]]) -> None:
+        JSONStorageBackend._atomic_write_json(file_path, items)
+
+    @staticmethod
+    def _atomic_write_json(file_path: Path, payload: Any) -> None:
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text(
-            json.dumps(items, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
+        fd, temporary_name = tempfile.mkstemp(
+            prefix=f".{file_path.name}.", suffix=".tmp", dir=file_path.parent
         )
-        JSONStorageBackend._restrict_permissions(file_path)
+        temporary = Path(temporary_name)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, ensure_ascii=False, indent=2)
+                handle.write("\n")
+            JSONStorageBackend._restrict_permissions(temporary)
+            os.replace(temporary, file_path)
+            JSONStorageBackend._restrict_permissions(file_path)
+        finally:
+            try:
+                temporary.unlink()
+            except FileNotFoundError:
+                pass
 
     def load_accounts(self) -> list[dict[str, Any]]:
         """从 JSON 文件加载账号数据"""
@@ -69,12 +85,7 @@ class JSONStorageBackend(StorageBackend):
 
     def save_auth_keys(self, auth_keys: list[dict[str, Any]]) -> None:
         """保存鉴权密钥数据到 JSON 文件"""
-        self.auth_keys_path.parent.mkdir(parents=True, exist_ok=True)
-        self.auth_keys_path.write_text(
-            json.dumps({"items": auth_keys}, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        self._restrict_permissions(self.auth_keys_path)
+        self._atomic_write_json(self.auth_keys_path, {"items": auth_keys})
 
     def health_check(self) -> dict[str, Any]:
         """健康检查"""

@@ -186,6 +186,17 @@ class TokenLogTests(unittest.TestCase):
             self.assertEqual(stat.S_IMODE(accounts.stat().st_mode), 0o600)
             self.assertEqual(stat.S_IMODE(auth_keys.stat().st_mode), 0o600)
 
+    def test_json_storage_atomic_write_preserves_previous_data_on_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "accounts.json"
+            backend = JSONStorageBackend(path)
+            backend.save_accounts([{"access_token": "synthetic-original"}])
+
+            with self.assertRaises(TypeError):
+                backend.save_accounts([{"not_json_serializable": object()}])
+
+            self.assertEqual(backend.load_accounts(), [{"access_token": "synthetic-original"}])
+
     @unittest.skipUnless(os.name == "posix", "文件权限断言仅适用于 POSIX")
     def test_log_file_is_owner_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
