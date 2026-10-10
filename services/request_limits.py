@@ -26,15 +26,19 @@ def _header(scope: dict[str, Any], name: bytes) -> bytes:
 
 
 def request_body_limit(scope: dict[str, Any]) -> int | None:
-    """Return a limit for request bodies that would otherwise be unbounded."""
+    """Return a limit for request bodies that would otherwise be unbounded.
+
+    FastAPI reads a request body even when its media type is missing or not a
+    JSON media type, then lets Pydantic reject the resulting value. Treat
+    every non-multipart request as a bounded JSON-sized body so callers cannot
+    bypass the pre-parser limit by changing ``Content-Type``.
+    """
     if scope.get("type") != "http" or scope.get("method", "GET").upper() in {"GET", "HEAD", "OPTIONS"}:
         return None
     content_type = _header(scope, b"content-type").split(b";", 1)[0].strip().lower()
-    if content_type == b"application/json" or content_type.endswith(b"+json"):
-        return MAX_JSON_REQUEST_BYTES
     if content_type == b"multipart/form-data":
         return MAX_MULTIPART_REQUEST_BYTES
-    return None
+    return MAX_JSON_REQUEST_BYTES
 
 
 class RequestBodyLimitMiddleware:

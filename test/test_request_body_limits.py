@@ -90,6 +90,24 @@ class RequestBodyLimitTests(unittest.TestCase):
         )
         self.assertEqual(sent[0]["status"], 400)
 
+    def test_unknown_content_type_is_rejected_while_reading(self):
+        async def app(scope, receive, send):
+            while True:
+                message = await receive()
+                if not message.get("more_body"):
+                    break
+
+        sent = self._run(
+            {"type": "http", "method": "POST", "headers": [(b"content-type", b"text/plain")]},
+            [
+                {"type": "http.request", "body": b"x" * MAX_JSON_REQUEST_BYTES, "more_body": True},
+                {"type": "http.request", "body": b"x", "more_body": False},
+            ],
+            app,
+        )
+
+        self.assertEqual(sent[0]["status"], 413)
+
     def test_chunked_json_body_is_rejected_while_reading(self):
         async def app(scope, receive, send):
             while True:
