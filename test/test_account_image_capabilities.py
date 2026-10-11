@@ -308,6 +308,48 @@ class AuthServiceTests(unittest.TestCase):
             self.assertIsNotNone(updated)
             self.assertEqual(updated["name"], "Alice")
 
+    def test_create_key_does_not_commit_memory_when_persist_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            storage = JSONStorageBackend(Path(tmp_dir) / "accounts.json", Path(tmp_dir) / "auth_keys.json")
+            service = AuthService(storage)
+
+            with patch.object(service, "_save", side_effect=OSError("disk unavailable")):
+                with self.assertRaises(OSError):
+                    service.create_key(role="user", name="Alice")
+
+            self.assertEqual(service.list_keys(), [])
+            self.assertEqual(AuthService(storage).list_keys(), [])
+
+    def test_update_key_does_not_commit_memory_when_persist_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            storage = JSONStorageBackend(Path(tmp_dir) / "accounts.json", Path(tmp_dir) / "auth_keys.json")
+            service = AuthService(storage)
+            item, raw_key = service.create_key(role="user", name="Alice")
+            before = service.list_keys()
+
+            with patch.object(service, "_save", side_effect=OSError("disk unavailable")):
+                with self.assertRaises(OSError):
+                    service.update_key(item["id"], {"enabled": False, "name": "Changed"}, role="user")
+
+            self.assertEqual(service.list_keys(), before)
+            self.assertEqual(AuthService(storage).list_keys(), before)
+            self.assertIsNotNone(service.authenticate(raw_key))
+
+    def test_delete_key_does_not_commit_memory_when_persist_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            storage = JSONStorageBackend(Path(tmp_dir) / "accounts.json", Path(tmp_dir) / "auth_keys.json")
+            service = AuthService(storage)
+            item, raw_key = service.create_key(role="user", name="Alice")
+            before = service.list_keys()
+
+            with patch.object(service, "_save", side_effect=OSError("disk unavailable")):
+                with self.assertRaises(OSError):
+                    service.delete_key(item["id"], role="user")
+
+            self.assertEqual(service.list_keys(), before)
+            self.assertEqual(AuthService(storage).list_keys(), before)
+            self.assertIsNotNone(service.authenticate(raw_key))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -73,8 +73,20 @@ class AuthService:
             return []
         return [normalized for item in items if (normalized := self._normalize_item(item)) is not None]
 
-    def _save(self) -> None:
-        self.storage.save_auth_keys(self._items)
+    def _save(self, items: list[dict[str, object]] | None = None) -> None:
+        self.storage.save_auth_keys(self._items if items is None else items)
+
+    def _copy_and_validate_items(self, items: list[dict[str, object]]) -> list[dict[str, object]]:
+        candidate = [dict(item) for item in items]
+        if any(self._normalize_item(item) is None for item in candidate):
+            raise ValueError("invalid auth key item")
+        return candidate
+
+    def _persist_items(self, items: list[dict[str, object]]) -> list[dict[str, object]]:
+        candidate = self._copy_and_validate_items(items)
+        self._save(candidate)
+        self._items = candidate
+        return candidate
 
     def _reload_locked(self) -> None:
         self._items = self._load()
@@ -171,8 +183,7 @@ class AuthService:
                 "created_at": _now_iso(),
                 "last_used_at": None,
             }
-            self._items.append(item)
-            self._save()
+            self._persist_items([*self._items, item])
             return self._public_item(item), raw_key
 
     def update_key(
@@ -207,8 +218,9 @@ class AuthService:
                     next_item["enabled"] = value if isinstance(value, bool) else False
                 if "key" in updates and updates.get("key") is not None:
                     next_item["key_hash"] = self._build_key_hash_locked(str(updates.get("key") or ""), exclude_id=normalized_id)
-                self._items[index] = next_item
-                self._save()
+                candidate_items = [dict(existing) for existing in self._items]
+                candidate_items[index] = next_item
+                self._persist_items(candidate_items)
                 return self._public_item(next_item)
         return None
 
@@ -217,16 +229,14 @@ class AuthService:
         if not normalized_id:
             return False
         with self._lock:
-            self._reload_locked()
-            before = len(self._items)
-            self._items = [
-                item
+            candidate_items = [
+                dict(item)
                 for item in self._items
                 if not (item.get("id") == normalized_id and (role is None or item.get("role") == role))
             ]
-            if len(self._items) == before:
+            if len(candidate_items) == len(self._items):
                 return False
-            self._save()
+            self._persist_items(candidate_items)
             return True
 
     def authenticate(self, raw_key: str) -> dict[str, object] | None:
